@@ -15,7 +15,6 @@
 ******************************************************************************/
 
 
-using NumSharp;
 using SharpCV;
 using System;
 using System.Collections;
@@ -27,6 +26,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Tensorflow;
 using Tensorflow.Keras.Utils;
+using Tensorflow.NumPy;
 using static SharpCV.Binding;
 using static Tensorflow.Binding;
 
@@ -111,19 +111,42 @@ namespace TensorFlowNET.Examples
         public bool Run()
         {
             tf.compat.v1.disable_eager_execution();
-
+         
             PrepareData();
             BuildGraph();
 
             sess = tf.Session();
-
             Train();
             Test();
 
             TestDataOutput();
 
-            return accuracy_test > 0.98;
+            FreezeModel();
+            LoadAndPredict();
 
+            return accuracy_test > 0.98;
+        }
+
+        public void LoadAndPredict()
+        {
+            using var graph = tf.Graph().as_default();
+            graph.Import(Path.Combine(Config.Name, "model.pb"));
+            Tensor x = graph.OperationByName("Input/X");
+            Tensor prediction = graph.OperationByName("Train/Prediction/predictions");
+            Tensor probility = graph.OperationByName("Train/Prediction/prob");
+
+            using var sess = tf.Session(graph);
+            var (prediction_result, probility_result) = sess.run((prediction, probility), (x, x_test));
+            print($"Prediction result: {prediction_result}");
+        }
+
+        public override string FreezeModel()
+        {
+            return tf.train.freeze_graph(Config.Name + "\\MODEL", "model", new[]
+            {
+                "Train/Prediction/predictions",
+                "Train/Prediction/prob"
+            });
         }
 
         #region PrepareData
@@ -158,16 +181,16 @@ namespace TensorFlowNET.Examples
         private void LoadImagesToNDArray()
         {
             //Load labels
-            y_valid = np.eye(Dict_Label.Count)[np.array(ArrayLabel_Validation)];
-            y_test = np.eye(Dict_Label.Count)[np.array(ArrayLabel_Test)];
+            y_valid = np.eye(Dict_Label.Count, dtype: tf.float32)[np.array(ArrayLabel_Validation)];
+            y_test = np.eye(Dict_Label.Count, dtype: tf.float32)[np.array(ArrayLabel_Test)];
             print("Load Labels To NDArray : OK!");
 
             //Load Images
-            x_valid = np.zeros(ArrayFileName_Validation.Length, img_h, img_w, n_channels);
-            x_test = np.zeros(ArrayFileName_Test.Length, img_h, img_w, n_channels);
+            x_valid = np.zeros((ArrayFileName_Validation.Length, img_h, img_w, n_channels), dtype: tf.float32);
+            x_test = np.zeros((ArrayFileName_Test.Length, img_h, img_w, n_channels), dtype: tf.float32);
             LoadImage(ArrayFileName_Validation, x_valid, "validation");
             LoadImage(ArrayFileName_Test, x_test, "test");
-            print("Load Images To NDArray : OK!");
+            print("Loading images finished!");
         }
         private void LoadImage(string[] a, NDArray b, string c)
         {
@@ -176,12 +199,11 @@ namespace TensorFlowNET.Examples
                 for (int i = 0; i < a.Length; i++)
                 {
                     b[i] = ReadTensorFromImageFile(a[i], graph);
-                    Console.Write(".");
+                    Console.WriteLine($"Loading image: {a[i]}");
                 }
             }
 
-            Console.WriteLine();
-            Console.WriteLine("Load Images To NDArray: " + c);
+            Console.WriteLine($"Loaded {a.Length} images for " + c);
         }
 
         private NDArray ReadTensorFromImageFile(string file_name, Graph graph)
@@ -325,13 +347,13 @@ namespace TensorFlowNET.Examples
 
                 tf_with(tf.variable_scope("Accuracy"), delegate
                 {
-                    var correct_prediction = tf.equal(tf.argmax(output_logits, 1), tf.argmax(y, 1), name: "correct_pred");
+                    var correct_prediction = tf.equal(tf.math.argmax(output_logits, 1), tf.math.argmax(y, 1), name: "correct_pred");
                     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32), name: "accuracy");
                 });
 
                 tf_with(tf.variable_scope("Prediction"), delegate
                 {
-                    cls_prediction = tf.argmax(output_logits, axis: 1, name: "predictions");
+                    cls_prediction = tf.math.argmax(output_logits, axis: 1, name: "predictions");
                     prob = tf.nn.softmax(output_logits, axis: 1, name: "prob");
                 });
             });
@@ -351,8 +373,8 @@ namespace TensorFlowNET.Examples
         {
             return tf_with(tf.variable_scope(name), delegate
             {
-                var num_in_channel = x.shape[x.NDims - 1];
-                var shape = new[] { filter_size, filter_size, num_in_channel, num_filters };
+                var num_in_channel = x.shape[x.ndim - 1];
+                var shape = new int[] { filter_size, filter_size, (int)num_in_channel, num_filters };
                 var W = weight_variable("W", shape);
                 // var tf.summary.histogram("weight", W);
                 var b = bias_variable("b", new[] { num_filters });
@@ -391,7 +413,7 @@ namespace TensorFlowNET.Examples
         {
             return tf_with(tf.variable_scope("Flatten_layer"), delegate
             {
-                var layer_shape = layer.TensorShape;
+                var layer_shape = layer.shape;
                 var num_features = layer_shape[new Slice(1, 4)].size;
                 var layer_flat = tf.reshape(layer, new[] { -1, num_features });
 
@@ -442,7 +464,7 @@ namespace TensorFlowNET.Examples
             {
                 var in_dim = x.shape[1];
 
-                var W = weight_variable("W_" + name, shape: new[] { in_dim, num_units });
+                var W = weight_variable("W_" + name, shape: new[] { (int)in_dim, num_units });
                 var b = bias_variable("b_" + name, new[] { num_units });
 
                 var layer = tf.matmul(x, W.AsTensor()) + b.AsTensor();
@@ -478,7 +500,7 @@ namespace TensorFlowNET.Examples
                 print($"Training epoch: {epoch + 1}");
                 // Randomly shuffle the training data at the beginning of each epoch 
                 (ArrayFileName_Train, ArrayLabel_Train) = ShuffleArray(ArrayLabel_Train.Length, ArrayFileName_Train, ArrayLabel_Train);
-                y_train = np.eye(Dict_Label.Count)[new NDArray(ArrayLabel_Train)];
+                y_train = np.eye(Dict_Label.Count, dtype: tf.float32)[new NDArray(ArrayLabel_Train)];
 
                 //decay learning rate
                 if (learning_rate_step != 0)
@@ -557,7 +579,7 @@ namespace TensorFlowNET.Examples
 
         (NDArray, NDArray) Randomize(NDArray x, NDArray y)
         {
-            var perm = np.random.permutation(y.shape[0]);
+            var perm = np.random.permutation((int)y.shape[0]);
             np.random.shuffle(perm);
             return (x[perm], y[perm]);
         }
@@ -572,12 +594,12 @@ namespace TensorFlowNET.Examples
 
         (NDArray, NDArray) GetNextBatch(Session sess, string[] x, NDArray y, int start, int end)
         {
-            NDArray x_batch = np.zeros(end - start, img_h, img_w, n_channels);
+            NDArray x_batch = np.zeros((end - start, img_h, img_w, n_channels), dtype: tf.float32);
             int n = 0;
             for (int i = start; i < end; i++)
             {
                 NDArray img4 = cv2.imread(x[i], IMREAD_COLOR.IMREAD_GRAYSCALE);
-                img4 = img4.reshape(img4.shape[0], img4.shape[1], 1);
+                img4 = img4.reshape((img4.shape[0], img4.shape[1], 1));
                 x_batch[n] = sess.run(normalized, (decodeJpeg, img4));
                 n++;
             }
@@ -609,7 +631,7 @@ namespace TensorFlowNET.Examples
                 string real_str = Dict_Label[real];
                 string predict_str = Dict_Label[predict];
                 print((i + 1).ToString() + "|" + "result:" + result + "|" + "real_str:" + real_str + "|"
-                    + "predict_str:" + predict_str + "|" + "probability:" + probability.GetSingle().ToString() + "|"
+                    + "predict_str:" + predict_str + "|" + "probability:" + (float)probability + "|"
                     + "fileName:" + fileName);
             }
         }

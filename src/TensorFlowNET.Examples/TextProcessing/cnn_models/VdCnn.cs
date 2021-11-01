@@ -35,9 +35,9 @@ namespace TensorFlowNET.Examples.Text
             cnn_initializer = keras.initializers.he_normal();
             fc_initializer = tf.truncated_normal_initializer(stddev: 0.05f);
 
-            x = tf.placeholder(tf.int32, new TensorShape(-1, document_max_len), name: "x");
-            y = tf.placeholder(tf.int32, new TensorShape(-1), name: "y");
-            is_training = tf.placeholder(tf.@bool, new TensorShape(), name: "is_training");
+            x = tf.placeholder(tf.int32, (-1, document_max_len), name: "x");
+            y = tf.placeholder(tf.int32, -1, name: "y");
+            is_training = tf.placeholder(tf.@bool, Shape.Null, name: "is_training");
             global_step = tf.Variable(0, trainable: false);
 
             // Embedding Layer
@@ -111,7 +111,7 @@ namespace TensorFlowNET.Examples.Text
             tf_with(tf.name_scope("fc-3"), scope =>
             {
                 logits = keras.layers.dense(fc2_out, num_class, activation: null, kernel_initializer: fc_initializer);
-                predictions = tf.argmax(logits, -1, output_type: tf.int32);
+                predictions = tf.math.argmax(logits, -1, output_type: tf.int32);
             });
 
             // ============= Loss and Accuracy =============

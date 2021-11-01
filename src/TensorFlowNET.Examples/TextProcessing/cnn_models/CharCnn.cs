@@ -13,9 +13,9 @@ namespace TensorFlowNET.Examples.Text
             var num_filters = 256;
             var kernel_initializer = tf.truncated_normal_initializer(stddev: 0.05f);
 
-            var x = tf.placeholder(tf.int32, new TensorShape(-1, document_max_len), name: "x");
-            var y = tf.placeholder(tf.int32, new TensorShape(-1), name: "y");
-            var is_training = tf.placeholder(tf.@bool, new TensorShape(), name: "is_training");
+            var x = tf.placeholder(tf.int32, (-1, document_max_len), name: "x");
+            var y = tf.placeholder(tf.int32, -1, name: "y");
+            var is_training = tf.placeholder(tf.@bool, Shape.Null, name: "is_training");
             var global_step = tf.Variable(0, trainable: false);
             var keep_prob = tf.where(is_training, 0.5f, 1.0f);
 
@@ -127,7 +127,7 @@ namespace TensorFlowNET.Examples.Text
                 logits = keras.layers.dense(fc2_out,
                     num_class,
                     kernel_initializer: kernel_initializer);
-                predictions = tf.argmax(logits, -1, output_type: tf.int32);
+                predictions = tf.math.argmax(logits, -1, output_type: tf.int32);
             });
 
             tf_with(tf.name_scope("loss"), delegate

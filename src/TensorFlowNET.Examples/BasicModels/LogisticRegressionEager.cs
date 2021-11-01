@@ -14,11 +14,11 @@
    limitations under the License.
 ******************************************************************************/
 
-using NumSharp;
 using System;
 using System.Diagnostics;
 using System.IO;
 using Tensorflow;
+using Tensorflow.NumPy;
 using static Tensorflow.Binding;
 using static Tensorflow.KerasApi;
 
@@ -94,7 +94,7 @@ namespace TensorFlowNET.Examples
             Func<Tensor, Tensor, Tensor> accuracy = (y_pred, y_true) =>
             {
                 // Predicted class is the index of highest score in prediction vector (i.e. argmax).
-                var correct_prediction = tf.equal(tf.argmax(y_pred, 1), tf.cast(y_true, tf.int64));
+                var correct_prediction = tf.equal(tf.math.argmax(y_pred, 1), tf.cast(y_true, tf.int64));
                 return tf.reduce_mean(tf.cast(correct_prediction, tf.float32));
             };
 
@@ -142,8 +142,8 @@ namespace TensorFlowNET.Examples
         public override void Train()
         {
             // tf Graph Input
-            var x = tf.placeholder(tf.float32, new TensorShape(-1, 784)); // mnist data image of shape 28*28=784
-            var y = tf.placeholder(tf.float32, new TensorShape(-1, 10)); // 0-9 digits recognition => 10 classes
+            var x = tf.placeholder(tf.float32, (-1, 784)); // mnist data image of shape 28*28=784
+            var y = tf.placeholder(tf.float32, (-1, 10)); // 0-9 digits recognition => 10 classes
 
             // Set model weights
             var W = tf.Variable(tf.zeros(new Shape(784, 10)));
@@ -205,7 +205,7 @@ namespace TensorFlowNET.Examples
                 // SaveModel(sess);
 
                 // Test model
-                var correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1));
+                var correct_prediction = tf.equal(tf.math.argmax(pred, 1), tf.math.argmax(y, 1));
                 // Calculate accuracy
                 var acc = tf.reduce_mean(tf.cast(correct_prediction, tf.float32));
                 accuracy = acc.eval(sess, (x, mnist.Test.Data), (y, mnist.Test.Labels));
@@ -250,7 +250,7 @@ namespace TensorFlowNET.Examples
                 var (batch_xs, batch_ys) = mnist.Train.GetNextBatch(10);
                 var results = sess.run(output, new FeedItem(input, batch_xs[np.arange(1)]));
 
-                if (results[0].argmax() == (batch_ys[0] as NDArray).argmax())
+                if ((bool)(np.argmax(results[0]) == np.argmax(batch_ys[0])))
                     print("predicted OK!");
                 else
                     throw new ValueError("predict error, should be 90% accuracy");

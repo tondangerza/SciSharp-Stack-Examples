@@ -1,9 +1,10 @@
-﻿using NumSharp;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Tensorflow;
 using Tensorflow.Keras.Utils;
+using Tensorflow.NumPy;
 using static Tensorflow.Binding;
 
 namespace TensorFlowNET.Examples
@@ -101,8 +102,8 @@ namespace TensorFlowNET.Examples
                         var sim = sess.run(cosine_sim_op, (X, x_test));
                         foreach (var i in range(len(eval_words)))
                         {
-                            var nearest = (0f - sim[i]).argsort<float>()
-                                .Data<int>()
+                            var nearest = np.argsort(0f - sim[i])
+                                .ToArray<int>()
                                 .Skip(1)
                                 .Take(top_k)
                                 .ToArray();
@@ -134,7 +135,10 @@ namespace TensorFlowNET.Examples
             foreach (var i in range(batch_size / num_skips))
             {
                 var context_words = range(span).Where(x => x != skip_window).ToArray();
-                var words_to_use = new int[] { 1, 6 };
+                List<int> span_list = Enumerable.Range(0, span).ToList();
+                Random rand = new Random(Guid.NewGuid().GetHashCode());
+                span_list.RemoveAt(skip_window);
+                var words_to_use = span_list.OrderBy(i => rand.Next(0, span_list.Count)).Take(num_skips).ToArray();
                 foreach (var (j, context_word) in enumerate(words_to_use))
                 {
                     batch[i * num_skips + j] = buffer.ElementAt(skip_window);
@@ -148,6 +152,7 @@ namespace TensorFlowNET.Examples
                 }
                 else
                 {
+                    buffer.Dequeue();
                     buffer.Enqueue(data[data_index]);
                     data_index += 1;
                 }

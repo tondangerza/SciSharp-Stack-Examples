@@ -14,10 +14,11 @@
    limitations under the License.
 ******************************************************************************/
 
-using NumSharp;
 using System.Diagnostics;
 using Tensorflow;
+using Tensorflow.NumPy;
 using static Tensorflow.Binding;
+using System;
 
 namespace TensorFlowNET.Examples
 {
@@ -132,7 +133,7 @@ namespace TensorFlowNET.Examples
                     print($"Step {i}, Avg Distance: {result[1]} Elapse: {sw.ElapsedMilliseconds}ms");
             }
 
-            var idx = result[2].Data<int>();
+            var idx = result[2].ToArray<int>();
 
             // Assign a label to each centroid
             // Count total number of labels per centroid, using the label of each training
@@ -140,10 +141,11 @@ namespace TensorFlowNET.Examples
             var counts = np.zeros((k, num_classes), np.float32);
 
             sw.Start();
-            foreach (var i in range(idx.Count))
+            foreach (var i in range(idx.Length))
             {
                 var x = mnist.Train.Labels[i];
-                counts[idx[i]] += x;
+                // counts[idx[i]] += x;
+                throw new NotImplementedException("");
             }
 
             sw.Stop();
@@ -158,7 +160,7 @@ namespace TensorFlowNET.Examples
             var cluster_label = tf.nn.embedding_lookup(labels_map, cluster_idx);
 
             // Compute accuracy
-            var correct_prediction = tf.equal(cluster_label, tf.cast(tf.argmax(Y, 1), tf.int32));
+            var correct_prediction = tf.equal(cluster_label, tf.cast(tf.math.argmax(Y, 1), tf.int32));
             var cast = tf.cast(correct_prediction, tf.float32);
             var accuracy_op = tf.reduce_mean(cast);
 

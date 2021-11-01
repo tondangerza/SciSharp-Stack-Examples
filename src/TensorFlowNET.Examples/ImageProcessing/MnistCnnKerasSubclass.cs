@@ -14,12 +14,12 @@
    limitations under the License.
 ******************************************************************************/
 
-using NumSharp;
 using System.Linq;
 using Tensorflow;
 using Tensorflow.Keras.ArgsDefinition;
 using Tensorflow.Keras.Engine;
 using Tensorflow.Keras.Optimizers;
+using Tensorflow.NumPy;
 using static Tensorflow.Binding;
 using static Tensorflow.KerasApi;
 
@@ -94,7 +94,7 @@ namespace TensorFlowNET.Examples
                 print($"Test Accuracy: {accuracy_test}");
             }
 
-            return accuracy_test > 0.90;
+            return accuracy_test > 0.85;
         }
 
         void run_optimization(ConvNet conv_net, OptimizerV2 optimizer, Tensor x, Tensor y)
@@ -141,7 +141,7 @@ namespace TensorFlowNET.Examples
         Tensor accuracy(Tensor y_pred, Tensor y_true)
         {
             // # Predicted class is the index of highest score in prediction vector (i.e. argmax).
-            var correct_prediction = tf.equal(tf.argmax(y_pred, 1), tf.cast(y_true, tf.int64));
+            var correct_prediction = tf.equal(tf.math.argmax(y_pred, 1), tf.cast(y_true, tf.int64));
             return tf.reduce_mean(tf.cast(correct_prediction, tf.float32), axis: -1);
         }
 

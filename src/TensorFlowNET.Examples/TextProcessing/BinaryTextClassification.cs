@@ -1,9 +1,9 @@
-﻿using NumSharp;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Tensorflow;
+using Tensorflow.NumPy;
 using static Tensorflow.Binding;
 using static Tensorflow.KerasApi;
 
@@ -24,7 +24,7 @@ namespace TensorFlowNET.Examples
             => Config = new ExampleConfig
             {
                 Name = "Binary Text Classification",
-                Enabled = true
+                Enabled = false
             };
 
         public bool Run()
@@ -55,7 +55,7 @@ namespace TensorFlowNET.Examples
 
         public override void PrepareData()
         {
-            tf.debugging.set_log_device_placement(true);
+            // tf.debugging.set_log_device_placement(true);
             string url = "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz";
             var dataset = keras.utils.get_file("aclImdb_v1.tar.gz", url,
                 untar: true,
